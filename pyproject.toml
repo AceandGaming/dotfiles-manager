@@ -1,0 +1,8 @@
+[project]
+name = "dotfiles-manager"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = ["typer"]
+
+[project.scripts]
+dotfiles = "app.main:main"

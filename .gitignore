@@ -1,0 +1,9 @@
+
+# python
+*.egg-info
+*.pyc
+__pycache__
+build
+
+#project
+dotfiles
