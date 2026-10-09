@@ -155,6 +155,7 @@ def c_add_file(
     if dotfiles_path.exists():
         raise typer.BadParameter(f"File already exists: {dotfiles_path}")
 
+    dotfiles_path.parent.mkdir(parents=True, exist_ok=True)
     os.link(config_path, dotfiles_path)
 
     if remove_existing:
