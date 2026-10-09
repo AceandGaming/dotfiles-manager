@@ -17,3 +17,6 @@ class Git:
 
     def commit(self, message: str):
         subprocess.run(["git", "commit", "-m", message], cwd=self.path)
+
+    def checkout(self, branch: str):
+        subprocess.run(["git", "checkout", branch], cwd=self.path)
