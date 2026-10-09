@@ -1,12 +1,12 @@
 # Dotfiles Manager
 
-A small CLI dedicated to managing your dotfiles. Unlike tools that use symlinks, Doty uses hardlinks to keep your configs in sync without copying files. It also automatically initializes a Git repository for version control.
+A small CLI dedicated to managing your dotfiles. Unlike tools that use symlinks, this uses hardlinks to keep your configs in sync without copying files. It also automatically initializes a Git repository for version control.
 
 ## Installation
 
 ```bash
 # Clone the repo
-git clone tbd
+git clone https://github.com/AceandGaming/dotfiles-manager.git
 cd dotfiles-manager
 
 # Install with pip
@@ -63,4 +63,4 @@ Run `doty --help` for a full list of commands and options.
 
 ## License
 
-This project is licensed under TBD.
+This project is licensed under the [MIT License](https://github.com/AceandGaming/dotfiles-manager?tab=MIT-1-ov-file).
