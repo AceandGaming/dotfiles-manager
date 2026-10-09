@@ -54,6 +54,7 @@ def c_update(override: bool | None = typer.Option(None, "-y/-n")):
                 continue
 
         typer.echo(f"Linking {link.source} -> {link.target}")
+        link.target.parent.mkdir(parents=True, exist_ok=True)
         try:
             os.link(link.source, link.target)
         except OSError:
@@ -135,6 +136,11 @@ def c_add_file(
         "-m",
         help="Move file to dotfiles instead of linking them",
     ),
+    create_parents: bool = typer.Option(
+        False,
+        "--create-parents",
+        "-p",
+    ),
 ):
     """Add an existing config to dotfiles"""
     check_dotfiles_path()
@@ -155,7 +161,14 @@ def c_add_file(
     if dotfiles_path.exists():
         raise typer.BadParameter(f"File already exists: {dotfiles_path}")
 
-    dotfiles_path.parent.mkdir(parents=True, exist_ok=True)
+    if create_parents:
+        dotfiles_path.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        if not dotfiles_path.parent.exists():
+            raise typer.BadParameter(
+                f"Parent directory does not exist: {dotfiles_path.parent}.\nHint: Use -p to create it"
+            )
+
     os.link(config_path, dotfiles_path)
 
     if remove_existing:
