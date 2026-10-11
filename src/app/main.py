@@ -132,12 +132,12 @@ def c_update(
                 typer.echo(f"Creating commit: {name}")
                 git.commit(name)
 
-            if push_commit:
-                if dry_run:
-                    typer.echo("[DRY RUN] Would push to origin")
-                else:
-                    typer.echo("Pushing commit")
-                    git.push()
+        if push_commit:
+            if dry_run:
+                typer.echo("[DRY RUN] Would push to origin")
+            else:
+                typer.echo("Pushing commit")
+                git.push()
 
     typer.echo("Done!")
 
