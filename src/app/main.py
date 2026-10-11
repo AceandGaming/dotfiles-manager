@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from subprocess import CalledProcessError
 
 import typer
 
@@ -27,10 +28,34 @@ def c_get_path():
 
 
 @app.command("update")
-def c_update(override: bool | None = typer.Option(None, "-y/-n")):
+def c_update(
+    override: bool | None = typer.Option(
+        None,
+        "--override",
+        "-y/-n",
+        help="Override existing configs with ones in dotfiles",
+    ),
+    pull: bool = typer.Option(False, "--pull", help="Pull from origin (if set)"),
+    commit: bool = typer.Option(
+        True, "--commit/--no-commit", help="Automatically create a git commit"
+    ),
+    push_commit: bool = typer.Option(False, "--push", help="Push to origin (if set)"),
+    dry_run: bool = typer.Option(False, "--dry-run"),
+):
     check_dotfiles_path()
 
-    typer.echo("Reading symlinks...")
+    if pull:
+        if dry_run:
+            typer.echo("[DRY RUN] Would pull from origin")
+        else:
+            typer.echo("Pulling from origin...")
+            try:
+                git.pull()
+            except CalledProcessError:
+                typer.echo("Error: failed to pull from origin", err=True)
+                raise typer.Exit(1)
+
+    typer.echo("Reading .links file...")
     links = file.read_links()
 
     typer.echo("Creating file links...")
@@ -44,21 +69,57 @@ def c_update(override: bool | None = typer.Option(None, "-y/-n")):
                 continue
 
             if override is None:
-                override = typer.confirm(
-                    f"Target file {link.target} already exists. Override?"
-                )
+                message = f"Target file {link.target} already exists. Override?"
+
+                if dry_run:
+                    message += " (dry run; file will not be modified)"
+
+                override = typer.confirm(message)
 
             if override:
-                link.target.unlink()
+                if dry_run:
+                    typer.echo(f"[DRY RUN] Would unlink {link.target}")
+                else:
+                    link.target.unlink()
             else:
                 continue
 
-        typer.echo(f"Linking {link.source} -> {link.target}")
-        link.target.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            os.link(link.source, link.target)
-        except OSError:
-            typer.echo(f"Error: failed to link {link.source} -> {link.target}")
+        if dry_run:
+            if not link.target.parent.exists():
+                typer.echo(
+                    f"[DRY RUN] Would create parent directory {link.target.parent}"
+                )
+            typer.echo(f"[DRY RUN] Would link {link.source} -> {link.target}")
+        else:
+            typer.echo(f"Linking {link.source} -> {link.target}")
+            link.target.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                os.link(link.source, link.target)
+            except OSError:
+                typer.echo(f"Error: failed to link {link.source} -> {link.target}")
+
+    if commit:
+        git.add_all()
+
+        changes = git.get_changes()
+        if len(changes) == 0:
+            typer.echo("No changes to commit")
+        else:
+            typer.echo(f"Found {len(changes)} changes")
+
+            name = git.generate_commit_name(changes)
+            if dry_run:
+                typer.echo(f"[DRY RUN] Would commit: {name}")
+            else:
+                typer.echo(f"Creating commit: {name}")
+                git.commit(name)
+
+            if push_commit:
+                if dry_run:
+                    typer.echo("[DRY RUN] Would push to origin")
+                else:
+                    typer.echo("Pushing commit")
+                    git.push()
 
     typer.echo("Done!")
 
@@ -177,11 +238,14 @@ def c_add_file(
         file.append_link(file.Link(dotfiles_path, config_path))
 
 
-@app.command("checkout")
-def c_checkout(branch: str = typer.Argument("main", help="Branch name of git repo")):
+@app.command(
+    "git", context_settings={"allow_extra_args": True, "ignore_unknown_options": True}
+)
+def c_git(ctx: typer.Context):
+    """Run any git command in the dotfiles directory"""
     check_dotfiles_path()
-
-    git.checkout(branch)
+    proc = git.run(list(ctx.args))
+    raise typer.Exit(code=proc.returncode)
 
 
 def main():
