@@ -193,7 +193,6 @@ def c_add_file(
     remove_existing: bool = typer.Option(
         False,
         "--move",
-        "--no-link",
         "-m",
         help="Move file to dotfiles instead of linking them",
     ),
