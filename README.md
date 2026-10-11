@@ -5,6 +5,10 @@ A small CLI dedicated to managing your dotfiles. Unlike tools that use symlinks,
 ## Installation
 
 ```bash
+pipx install git+https://github.com/AceandGaming/dotfiles-manager.git
+```
+### Alternatively:
+```bash
 # Clone the repo
 git clone https://github.com/AceandGaming/dotfiles-manager.git
 cd dotfiles-manager
