@@ -6,7 +6,8 @@ import typer
 
 import app.file as file
 from app.git import Git
-from app.var import DOTFILES_PATH, LINKS_FILE
+from app.state import state
+from app.var import DOTFILES_PATH, LINKS_FILE, OLD_LINKS_FILE
 
 app = typer.Typer(add_completion=False, pretty_exceptions_enable=False)
 git = Git(DOTFILES_PATH)
@@ -17,8 +18,22 @@ previous_links: list[file.Link] = []
 def check_dotfiles_path():
     if not DOTFILES_PATH.exists() or not LINKS_FILE.exists():
         typer.echo("Error: dotfiles directory does not exist or is invaild")
-        typer.echo("Hint: Use `init` to initialize the dotfiles directory")
+        if OLD_LINKS_FILE.exists():
+            typer.echo("Hint: Use `migrate` to migrate the existing .links file")
+        else:
+            typer.echo("Hint: Use `init` to initialize the dotfiles directory")
         raise typer.Exit(1)
+
+
+def get_profile(profile_name: str | None = None):
+    if profile_name is None:
+        profile_name = state.profile
+
+    links_file = file.read_links_file()
+    if profile_name not in links_file.profiles:
+        return file.Profile(profile_name, []), links_file
+
+    return links_file.profiles[profile_name], links_file
 
 
 @app.command("path")
@@ -55,8 +70,11 @@ def c_update(
                 typer.echo("Error: failed to pull from origin", err=True)
                 raise typer.Exit(1)
 
-    typer.echo("Reading .links file...")
-    links = file.read_links()
+    typer.echo("Reading links file...")
+    global_profile, _ = get_profile("global")
+    profile, _ = get_profile()
+
+    links = profile.links + global_profile.links
 
     typer.echo("Creating file links...")
     for link in links:
@@ -154,30 +172,31 @@ def c_link_file(source: Path, target: Path):
             f"Target file {target} cannot be inside dotfiles directory"
         )
 
-    links = file.read_links()
-    for link in links:
+    profile, f = get_profile()
+    for link in profile.links:
         if link.target == target:
             raise typer.BadParameter(f"Config with target {target} already exists")
 
     if target.exists():
         typer.echo("Warning: Target file already exists")
 
-    file.append_link(file.Link(source, target))
+    profile.add_link(source, target)
+
+    f.set_profile(profile)
+    file.write_links_file(f)
 
 
 @app.command("unlink")
-def c_unlick_file(target: Path):
+def c_unlink_file(target: Path):
     """Remove a link"""
     check_dotfiles_path()
 
     target = target.resolve()
 
-    links = file.read_links()
-    for link in links:
-        if link.target == target:
-            links.remove(link)
-
-    file.write_links(links)
+    profile, f = get_profile()
+    profile.remove_link(target)
+    f.set_profile(profile)
+    file.write_links_file(f)
 
     if not target.exists():
         return
@@ -201,9 +220,13 @@ def c_add_file(
         "--create-parents",
         "-p",
     ),
+    profile_name: str | None = typer.Option(None, "--profile"),
 ):
     """Add an existing config to dotfiles"""
     check_dotfiles_path()
+
+    if profile_name is None:
+        profile_name = state.profile
 
     config_path = config_path.resolve()
     dotfiles_path = (DOTFILES_PATH / dotfiles_path).resolve()
@@ -234,7 +257,10 @@ def c_add_file(
     if remove_existing:
         config_path.unlink()
     else:
-        file.append_link(file.Link(dotfiles_path, config_path))
+        profile, f = get_profile(profile_name)
+        profile.add_link(dotfiles_path, config_path)
+        f.set_profile(profile)
+        file.write_links_file(f)
 
 
 @app.command(
@@ -245,6 +271,35 @@ def c_git(ctx: typer.Context):
     check_dotfiles_path()
     proc = git.run(list(ctx.args))
     raise typer.Exit(code=proc.returncode)
+
+
+@app.command("profile")
+def c_set_profile(profile: str = typer.Argument("global")):
+    """Switches the current profile"""
+    check_dotfiles_path()
+    state.profile = profile
+
+    typer.echo(f"Switched to profile {profile}")
+    typer.echo("Use `doty update` to apply the new profile")
+
+
+@app.command("migrate")
+def c_migrate():
+    if not OLD_LINKS_FILE.exists():
+        typer.echo("No file to migrate")
+        return
+    if LINKS_FILE.exists():
+        typer.echo("Links file already exists", err=True)
+        raise typer.Exit(1)
+
+    links = file.read_old_links()
+    profile = file.Profile(name="global", links=links)
+
+    file.write_links_file(file.LinksFile(profiles=[profile]))
+
+    typer.echo("Migrated!")
+    if typer.confirm("Do you want to remove the old links file?"):
+        OLD_LINKS_FILE.unlink()
 
 
 def main():

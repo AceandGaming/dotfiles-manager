@@ -62,7 +62,7 @@ class Git:
             return "Update dotfiles"
 
         # Ignore automatically managed .links files unless they're the only changes.
-        filtered = [change for change in changes if change.path.name != ".links"]
+        filtered = [change for change in changes if change.path.name != ".links.json"]
         if not filtered:
             filtered = changes
 

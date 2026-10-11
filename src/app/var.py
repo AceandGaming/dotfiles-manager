@@ -5,4 +5,9 @@ DOTFILES_PATH = Path(
     os.environ.get("DOTY_DOTFILES_PATH", Path.home() / ".dotfiles")
 ).resolve()
 
-LINKS_FILE = DOTFILES_PATH / ".links"
+OLD_LINKS_FILE = DOTFILES_PATH / ".links"
+LINKS_FILE = DOTFILES_PATH / ".links.json"
+
+DOTY_STATE = (
+    Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local" / "state")) / "doty"
+)
